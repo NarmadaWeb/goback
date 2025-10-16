@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var version string = "0.1.1"
+var version string = "0.1.6"
 
 type VersionModel struct {
 	selected bool
