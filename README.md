@@ -62,11 +62,21 @@ go install github.com/NarmadaWeb/goback@latest
 go install github.com/NarmadaWeb/goback@0.1.2 # x.x.x
 ````
 
-### update version to latest 
+### update version to latest
 
 ```bash
 go install -u github.com/NarmadaWeb/goback@latest
 ````
+
+### With Install Script
+
+For quick installation on Linux, macOS, or Windows (via WSL/Git Bash), use the install script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NarmadaWeb/goback/main/install.sh | bash
+```
+
+This will automatically download the latest release binary for your platform and install it to `/usr/local/bin` (or `~/bin` if you don't have sudo access).
 
 ### From Source
 

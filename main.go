@@ -1,4 +1,4 @@
-// cmd/goback/main.go
+// main.go
 
 package main
 
