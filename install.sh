@@ -63,4 +63,10 @@ mkdir -p "$INSTALL_DIR"
 mv "$BINARY_NAME" "$INSTALL_DIR/goback"
 echo "Installed to $INSTALL_DIR. Make sure $INSTALL_DIR is in your PATH."
 
+if [ "$OS" = "linux" ]; then
+    echo "To update PATH in your current session, run: source ~/.bashrc  # or ~/.zshrc, ~/.profile, etc. depending on your shell"
+elif [ "$OS" = "darwin" ]; then
+    echo "To update PATH in your current session, run: source ~/.zshrc  # or ~/.bash_profile if using bash"
+fi
+
 echo "Installation complete. Run 'goback' to start."
