@@ -44,7 +44,7 @@ jobs:
           if [ "${{ matrix.os }}" = "windows" ]; then
             EXT=".exe"
           fi
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o goback-${{ matrix.suffix }}$EXT ./cmd
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o goback-${{ matrix.suffix }}$EXT ./
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
