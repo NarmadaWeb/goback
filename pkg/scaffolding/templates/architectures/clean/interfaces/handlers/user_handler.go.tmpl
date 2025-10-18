@@ -115,7 +115,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	}
 	{{end}}
 	
-	user, err := h.userUsecase.GetUser(c.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	user, err := h.userUsecase.GetUser(c.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(c, err)
 		return nil
@@ -156,7 +156,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	if err := h.validator.Validate(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err})
 	}
 	
 	dto := entities.UpdateUserDTO{
@@ -166,7 +166,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		IsActive: req.IsActive,
 	}
 
-	user, err := h.userUsecase.UpdateUser(c.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}}, dto)
+	user, err := h.userUsecase.UpdateUser(c.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}}, dto)
 	if err != nil {
 		handleServiceError(c, err)
 		return nil
@@ -188,7 +188,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	}
 	{{end}}
 
-	err = h.userUsecase.DeleteUser(c.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	err = h.userUsecase.DeleteUser(c.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(c, err)
 		return nil
@@ -232,7 +232,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		return
 	}
 	
-	user, err := h.userUsecase.GetUser(c.Request.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	user, err := h.userUsecase.GetUser(c.Request.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -283,7 +283,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		IsActive: req.IsActive,
 	}
 
-	user, err := h.userUsecase.UpdateUser(c.Request.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}}, dto)
+	user, err := h.userUsecase.UpdateUser(c.Request.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}}, dto)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -303,7 +303,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	err = h.userUsecase.DeleteUser(c.Request.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	err = h.userUsecase.DeleteUser(c.Request.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -344,7 +344,7 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"errors": "invalid user ID"})
 	}
 	
-	user, err := h.userUsecase.GetUser(c.Request().Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	user, err := h.userUsecase.GetUser(c.Request().Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(c, err)
 		return nil
@@ -398,7 +398,7 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 		IsActive: req.IsActive,
 	}
 
-	user, err := h.userUsecase.UpdateUser(c.Request().Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}}, dto)
+	user, err := h.userUsecase.UpdateUser(c.Request().Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}}, dto)
 	if err != nil {
 		handleServiceError(c, err)
 		return nil
@@ -417,7 +417,7 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid user ID"})
 	}
 
-	err = h.userUsecase.DeleteUser(c.Request().Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	err = h.userUsecase.DeleteUser(c.Request().Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(c, err)
 		return nil
@@ -463,7 +463,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	user, err := h.userUsecase.GetUser(r.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	user, err := h.userUsecase.GetUser(r.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -522,7 +522,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		IsActive: req.IsActive,
 	}
 
-	user, err := h.userUsecase.UpdateUser(r.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}}, dto)
+	user, err := h.userUsecase.UpdateUser(r.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}}, dto)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -543,7 +543,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.userUsecase.DeleteUser(r.Context(), {{if eq .Database "postgresql"}}id{{else}}uint(id){{end}})
+	err = h.userUsecase.DeleteUser(r.Context(), {{if eq .Database "postgresql"}}id{{else}}entities.UserID(id){{end}})
 	if err != nil {
 		handleServiceError(w, err)
 		return

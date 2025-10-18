@@ -36,7 +36,9 @@ import (
 	
 	{{else if eq .Architecture "clean" -}}
 	"{{.ModulePath}}/config"
+	{{- if eq .Tool "gorm"}}
 	"{{.ModulePath}}/domain/entities"
+	{{- end}}
 	"{{.ModulePath}}/domain/utils"
 	"{{.ModulePath}}/infrastructure/database"
 	"{{.ModulePath}}/interfaces/routes"

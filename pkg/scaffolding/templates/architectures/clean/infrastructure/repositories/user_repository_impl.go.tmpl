@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"{{.ModulePath}}/domain/entities"
-	"{{.ModulePath}}/domain/repositories"
+	"{{.ModulePath}}/domain/usecases"
 	{{- if eq .Database "postgresql" }}
 	"github.com/google/uuid"
 	{{- end}}
@@ -32,7 +32,6 @@ import (
 )
 
 // --- MODEL PERSISTENSI & MAPPING ---
-// Model ini dipetakan ke tabel database, terpisah dari entitas domain.
 type UserPersistenceModel struct {
 	{{- if and (eq .Tool "gorm") (ne .Database "postgresql") }}
 	gorm.Model
@@ -111,7 +110,7 @@ type GormUserRepository struct {
 	db *gorm.DB 
 }
 
-func NewGormUserRepository(db *gorm.DB) repositories.UserRepository { 
+func NewGormUserRepository(db *gorm.DB) usecases.UserRepository { 
 	return &GormUserRepository{db: db} 
 }
 
@@ -221,7 +220,7 @@ type SqlxUserRepository struct {
 	db *sqlx.DB 
 }
 
-func NewSqlxUserRepository(db *sqlx.DB) repositories.UserRepository { 
+func NewSqlxUserRepository(db *sqlx.DB) usecases.UserRepository { 
 	return &SqlxUserRepository{db: db} 
 }
 
@@ -389,7 +388,7 @@ type SqlcUserRepository struct {
 	db      sqlc.DBTX
 }
 
-func NewSqlcUserRepository(db sqlc.DBTX) repositories.UserRepository {
+func NewSqlcUserRepository(db sqlc.DBTX) usecases.UserRepository {
 	return &SqlcUserRepository{queries: sqlc.New(db), db: db}
 }
 

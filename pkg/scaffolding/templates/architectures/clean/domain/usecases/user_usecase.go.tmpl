@@ -12,21 +12,19 @@ import (
 // UserRepository defines the contract for user data access in use cases
 type UserRepository interface {
 	{{- if eq .Database "postgresql" }}
-	GetByID(ctx context.Context, id uuid.UUID) (*entities.User, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*entities.User, error)
 	{{- else}}
-	GetByID(ctx context.Context, id uint) (*entities.User, error)
+	FindByID(ctx context.Context, id entities.UserID) (*entities.User, error)
 	{{- end}}
-	GetByEmail(ctx context.Context, email string) (*entities.User, error)
-	GetAll(ctx context.Context, page, perPage int) ([]*entities.User, int64, error)
-	Create(ctx context.Context, user *entities.User) error
+	FindByEmail(ctx context.Context, email string) (*entities.User, error)
+	FindAll(ctx context.Context, page, perPage int) ([]entities.User, int64, error)
 	{{- if eq .Database "postgresql" }}
-	Update(ctx context.Context, id uuid.UUID, user *entities.User) error
+	Save(ctx context.Context, user *entities.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	{{- else}}
-	Update(ctx context.Context, id uint, user *entities.User) error
-	Delete(ctx context.Context, id uint) error
+	Save(ctx context.Context, user *entities.User) error
+	Delete(ctx context.Context, id entities.UserID) error
 	{{- end}}
-	Search(ctx context.Context, query string, page, perPage int) ([]*entities.User, int64, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 }
 
@@ -60,7 +58,7 @@ func (uc *UserUsecase) CreateUser(ctx context.Context, name, email, password str
 	}
 
 	// Save user
-	if err := uc.userRepo.Create(ctx, user); err != nil {
+	if err := uc.userRepo.Save(ctx, user); err != nil {
 		return nil, err
 	}
 
@@ -71,9 +69,9 @@ func (uc *UserUsecase) CreateUser(ctx context.Context, name, email, password str
 {{- if eq .Database "postgresql" }}
 func (uc *UserUsecase) GetUser(ctx context.Context, id uuid.UUID) (*entities.User, error) {
 {{- else}}
-func (uc *UserUsecase) GetUser(ctx context.Context, id uint) (*entities.User, error) {
+func (uc *UserUsecase) GetUser(ctx context.Context, id entities.UserID) (*entities.User, error) {
 {{- end}}
-	user, err := uc.userRepo.GetByID(ctx, id)
+	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +83,7 @@ func (uc *UserUsecase) GetUser(ctx context.Context, id uint) (*entities.User, er
 
 // GetUserByEmail use case for retrieving a user by email
 func (uc *UserUsecase) GetUserByEmail(ctx context.Context, email string) (*entities.User, error) {
-	user, err := uc.userRepo.GetByEmail(ctx, email)
+	user, err := uc.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
@@ -108,37 +106,28 @@ func (uc *UserUsecase) GetAllUsers(ctx context.Context, page, perPage int) ([]*e
 		perPage = 100
 	}
 
-	return uc.userRepo.GetAll(ctx, page, perPage)
-}
-
-// SearchUsers use case for searching users
-func (uc *UserUsecase) SearchUsers(ctx context.Context, query string, page, perPage int) ([]*entities.User, int64, error) {
-	if query == "" {
-		return uc.GetAllUsers(ctx, page, perPage)
+	users, total, err := uc.userRepo.FindAll(ctx, page, perPage)
+	if err != nil {
+	    return nil, 0, err
 	}
-
-	// Apply business rules for pagination
-	if page <= 0 {
-		page = 1
+	
+	// Convert []entities.User to []*entities.User
+	result := make([]*entities.User, len(users))
+	for i := range users {
+	    result[i] = &users[i]
 	}
-	if perPage <= 0 {
-		perPage = 10
-	}
-	if perPage > 100 {
-		perPage = 100
-	}
-
-	return uc.userRepo.Search(ctx, query, page, perPage)
+	
+	return result, total, nil
 }
 
 // UpdateUser use case for updating user information
 {{- if eq .Database "postgresql" }}
 func (uc *UserUsecase) UpdateUser(ctx context.Context, id uuid.UUID, dto entities.UpdateUserDTO) (*entities.User, error) {
 {{- else}}
-func (uc *UserUsecase) UpdateUser(ctx context.Context, id uint, dto entities.UpdateUserDTO) (*entities.User, error) {
+func (uc *UserUsecase) UpdateUser(ctx context.Context, id entities.UserID, dto entities.UpdateUserDTO) (*entities.User, error) {
 {{- end}}
 	// Get existing user
-	user, err := uc.userRepo.GetByID(ctx, id)
+	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -186,22 +175,22 @@ func (uc *UserUsecase) UpdateUser(ctx context.Context, id uint, dto entities.Upd
 	}
 
 	// Save updated user
-	if err := uc.userRepo.Update(ctx, id, user); err != nil {
+	if err := uc.userRepo.Save(ctx, user); err != nil {
 		return nil, err
 	}
 
 	// Return updated user
-	return uc.userRepo.GetByID(ctx, id)
+	return uc.userRepo.FindByID(ctx, id)
 }
 
 // DeleteUser use case for deleting a user
 {{- if eq .Database "postgresql" }}
 func (uc *UserUsecase) DeleteUser(ctx context.Context, id uuid.UUID) error {
 {{- else}}
-func (uc *UserUsecase) DeleteUser(ctx context.Context, id uint) error {
+func (uc *UserUsecase) DeleteUser(ctx context.Context, id entities.UserID) error {
 {{- end}}
 	// Check if user exists
-	user, err := uc.userRepo.GetByID(ctx, id)
+	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -212,7 +201,7 @@ func (uc *UserUsecase) DeleteUser(ctx context.Context, id uint) error {
 	// Business rule: Deactivate user before deletion
 	if user.IsActive {
 		user.Deactivate()
-		if err := uc.userRepo.Update(ctx, id, user); err != nil {
+		if err := uc.userRepo.Save(ctx, user); err != nil {
 			return err
 		}
 	}
@@ -224,9 +213,9 @@ func (uc *UserUsecase) DeleteUser(ctx context.Context, id uint) error {
 {{- if eq .Database "postgresql" }}
 func (uc *UserUsecase) ActivateUser(ctx context.Context, id uuid.UUID) error {
 {{- else}}
-func (uc *UserUsecase) ActivateUser(ctx context.Context, id uint) error {
+func (uc *UserUsecase) ActivateUser(ctx context.Context, id entities.UserID) error {
 {{- end}}
-	user, err := uc.userRepo.GetByID(ctx, id)
+	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -235,16 +224,16 @@ func (uc *UserUsecase) ActivateUser(ctx context.Context, id uint) error {
 	}
 
 	user.Activate()
-	return uc.userRepo.Update(ctx, id, user)
+	return uc.userRepo.Save(ctx, user)
 }
 
 // DeactivateUser use case for deactivating a user account
 {{- if eq .Database "postgresql" }}
 func (uc *UserUsecase) DeactivateUser(ctx context.Context, id uuid.UUID) error {
 {{- else}}
-func (uc *UserUsecase) DeactivateUser(ctx context.Context, id uint) error {
+func (uc *UserUsecase) DeactivateUser(ctx context.Context, id entities.UserID) error {
 {{- end}}
-	user, err := uc.userRepo.GetByID(ctx, id)
+	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -253,16 +242,16 @@ func (uc *UserUsecase) DeactivateUser(ctx context.Context, id uint) error {
 	}
 
 	user.Deactivate()
-	return uc.userRepo.Update(ctx, id, user)
+	return uc.userRepo.Save(ctx, user)
 }
 
 // VerifyUserPassword use case for password verification
 {{- if eq .Database "postgresql" }}
 func (uc *UserUsecase) VerifyUserPassword(ctx context.Context, id uuid.UUID, password string) (bool, error) {
 {{- else}}
-func (uc *UserUsecase) VerifyUserPassword(ctx context.Context, id uint, password string) (bool, error) {
+func (uc *UserUsecase) VerifyUserPassword(ctx context.Context, id entities.UserID, password string) (bool, error) {
 {{- end}}
-	user, err := uc.userRepo.GetByID(ctx, id)
+	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return false, err
 	}

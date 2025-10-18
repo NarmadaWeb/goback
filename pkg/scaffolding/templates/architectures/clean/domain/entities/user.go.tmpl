@@ -9,12 +9,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+{{- if eq .Database "mysql" }}
+type UserID uint
+{{- end }}
+
 // User represents the core business entity for users
 type User struct {
 	{{- if eq .Database "postgresql" }}
 	ID        uuid.UUID `json:"id"`
 	{{- else}}
-	ID        uint      `json:"id"`
+	ID        UserID     `json:"id"`
 	{{- end}}
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`

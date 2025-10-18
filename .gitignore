@@ -21,3 +21,9 @@ vendor/
 build/
 bin/
 goback
+
+.act-cache/
+
+*.act-cache/
+
+.act-cache/*
