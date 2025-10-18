@@ -160,7 +160,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("GoBack v0.1.7")
+		fmt.Println("GoBack v0.1.8")
 		fmt.Println("TUI Backend Project Scaffolding Tool")
 	},
 }
