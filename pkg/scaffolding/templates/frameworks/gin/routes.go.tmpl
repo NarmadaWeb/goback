@@ -29,7 +29,7 @@ import (
 	
 	{{else if eq .Architecture "clean" -}}
 	"{{.ModulePath}}/domain/usecases"
-	"{{.ModulePath}}/infrastructure/repositories"
+	infra "{{.ModulePath}}/infrastructure/repositories"
 	"{{.ModulePath}}/interfaces/handlers"
 	"{{.ModulePath}}/domain/utils"
 	{{- if eq .Tool "sqlc" }}
@@ -67,11 +67,11 @@ func Setup(app *gin.Engine, db {{if eq .Tool "gorm"}}*gorm.DB{{else if eq .Tool 
 	// Setup repositories
 	var userRepository usecases.UserRepository
 	{{if eq .Tool "gorm"}}
-	userRepository = repositories.NewGormUserRepository(db)
+	userRepository = infra.NewGormUserRepository(db)
 	{{else if eq .Tool "sqlx"}}
-	userRepository = repositories.NewSqlxUserRepository(db)
+	userRepository = infra.NewSqlxUserRepository(db)
 	{{else if eq .Tool "sqlc"}}
-	userRepository = repositories.NewSqlcUserRepository(db)
+	userRepository = infra.NewSqlcUserRepository(db)
 	{{end}}
 
 	// Setup services

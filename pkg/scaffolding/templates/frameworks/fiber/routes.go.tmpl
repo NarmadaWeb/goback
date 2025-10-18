@@ -29,7 +29,7 @@ import (
 	
 	{{else if eq .Architecture "clean" -}}
 	"{{.ModulePath}}/domain/usecases"
-	"{{.ModulePath}}/infrastructure/repositories"
+	infra "{{.ModulePath}}/infrastructure/repositories"
 	"{{.ModulePath}}/interfaces/handlers"
 	"{{.ModulePath}}/domain/utils"
 	{{- if eq .Tool "sqlc" }}
@@ -72,11 +72,11 @@ func Setup(app *fiber.App, db {{if eq .Tool "gorm"}}*gorm.DB{{else if eq .Tool "
 	// Setup repositories
 	var userRepository usecases.UserRepository
 	{{if eq .Tool "gorm"}}
-	userRepository = repositories.NewGormUserRepository(db)
+	userRepository = infra.NewGormUserRepository(db)
 	{{else if eq .Tool "sqlx"}}
-	userRepository = repositories.NewSqlxUserRepository(db)
+	userRepository = infra.NewSqlxUserRepository(db)
 	{{else if eq .Tool "sqlc"}}
-	userRepository = repositories.NewSqlcUserRepository(db)
+	userRepository = infra.NewSqlcUserRepository(db)
 	{{end}}
 
 	// Setup services
@@ -111,11 +111,31 @@ func Setup(app *fiber.App, db {{if eq .Tool "gorm"}}*gorm.DB{{else if eq .Tool "
 		// User routes
 		users := v1.Group("/users")
 		{
-			users.Post("/", userHandler.Create)
-			users.Get("/{id}", userHandler.GetByID)
-			users.Get("/", userHandler.GetAll)
-			users.Put("/{id}", userHandler.Update)
-			users.Delete("/{id}", userHandler.Delete)
+			{{if eq .Architecture "simple"}}
+			users.Get("", userHandler.GetUsers)
+			users.Get("/:id", userHandler.GetUser)
+			users.Post("", userHandler.CreateUser)
+			users.Put("/:id", userHandler.UpdateUser)
+			users.Delete("/:id", userHandler.DeleteUser)
+			{{else if eq .Architecture "ddd"}}
+			users.Get("", userHandler.GetAll)
+			users.Get("/:id", userHandler.GetByID)
+			users.Post("", userHandler.Create)
+			users.PUT("/:id", userHandler.Update)
+			users.Delete("/:id", userHandler.Delete)
+			{{else if eq .Architecture "clean"}}
+			users.Post("", userHandler.CreateUser)
+			users.Get("/:id", userHandler.GetUser)
+			users.Get("", userHandler.GetAllUsers)
+			users.Put("/:id", userHandler.UpdateUser)
+			users.Delete("/:id", userHandler.DeleteUser)
+			{{else if eq .Architecture "hexagonal"}}
+			users.Post("", userHandler.Create)
+			users.Get("/:id", userHandler.GetByID)
+			users.Get("", userHandler.GetAll)
+			users.Put("/:id", userHandler.Update)
+			users.Delete("/:id", userHandler.Delete)
+			{{end}}
 		}
 	}
 }
