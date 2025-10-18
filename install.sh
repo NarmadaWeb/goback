@@ -57,20 +57,10 @@ curl -L -o "$BINARY_NAME" "$DOWNLOAD_URL"
 
 chmod +x "$BINARY_NAME"
 
-# Install to /usr/local/bin if possible, else ~/bin
-if [ "$OS" = "linux" ] || [ "$OS" = "darwin" ]; then
-    if [ -w /usr/local/bin ]; then
-        sudo mv "$BINARY_NAME" /usr/local/bin/goback
-    else
-        mkdir -p ~/bin
-        mv "$BINARY_NAME" ~/bin/goback
-        echo "Installed to ~/bin. Make sure ~/bin is in your PATH."
-    fi
-else
-    # For Windows, assume Git Bash or similar, install to ~/bin
-    mkdir -p ~/bin
-    mv "$BINARY_NAME" ~/bin/goback.exe
-    echo "Installed to ~/bin. Make sure ~/bin is in your PATH."
-fi
+# Install to user local bin directory
+INSTALL_DIR="$HOME/.local/bin"
+mkdir -p "$INSTALL_DIR"
+mv "$BINARY_NAME" "$INSTALL_DIR/goback"
+echo "Installed to $INSTALL_DIR. Make sure $INSTALL_DIR is in your PATH."
 
 echo "Installation complete. Run 'goback' to start."
