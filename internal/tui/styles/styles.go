@@ -136,7 +136,7 @@ const (
 	StyleInfo    = "info"
 )
 
-// Logo and branding
+// RenderLogo for rendering
 func RenderLogo() string {
 	logo := `
    ▄██████▄   ▄██████▄  ▀█████████▄     ▄████████  ▄████████    ▄█   ▄█▄
