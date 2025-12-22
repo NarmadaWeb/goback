@@ -408,6 +408,56 @@ func (tg *TemplateGenerator) generateToolFiles() error {
 			filename := strings.TrimPrefix(slashedRelPath, "db/queries")
 
 			destPath = filepath.Join("secondary/database/query", filename)
+
+		// Handling "pregen" folder for SQLC pre-generated files
+		case strings.HasPrefix(slashedRelPath, "pregen"):
+			// Determine DB Type
+			dbType := strings.ToLower(string(tg.Config.Database))
+			if dbType == "postgresql" {
+				dbType = "postgres"
+			}
+
+			// Only process files for the selected database
+			// Expected path structure: pregen/{db_type}/{filename}
+			// Note: strings.Contains works better here because filepath separators might differ or be normalized
+			if !strings.Contains(slashedRelPath, "pregen/"+dbType+"/") {
+				return nil
+			}
+
+			filename := filepath.Base(path)
+
+			// Determine destination directory based on architecture
+			var outDir string
+			switch {
+			case isSimple:
+				outDir = "db/sqlc"
+			case isClean, isDDD:
+				outDir = "infrastructure/database/sqlc"
+			case isHexa:
+				outDir = "secondary/database/sqlc"
+			default:
+				outDir = "db/sqlc"
+			}
+
+			destPath = filepath.Join(outDir, filename)
+
+		// for generate file sqlx
+		// Handling "migrations" folder specifically for SQLX (or general usage)
+		case strings.HasPrefix(slashedRelPath, "migrations"):
+			filename := strings.TrimPrefix(slashedRelPath, "migrations")
+
+			switch {
+			case isSimple:
+				destPath = filepath.Join("db/migrations", filename)
+			case isClean, isDDD:
+				destPath = filepath.Join("infrastructure/database/migrations", filename)
+			case isHexa:
+				destPath = filepath.Join("secondary/database/migrations", filename)
+			default:
+				// Fallback if architecture is unknown or defaults to simple
+				destPath = filepath.Join("db/migrations", filename)
+			}
+
 		default:
 			// for sqlc simple architecture
 			switch {
