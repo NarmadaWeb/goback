@@ -18,6 +18,13 @@ import (
 )
 
 const (
+	archSimple    = "simple"
+	archClean     = "clean"
+	archDDD       = "ddd"
+	archHexagonal = "hexagonal"
+)
+
+const (
 	pathConfig     = "config/framework.go"
 	pathMigrate    = "pkg/migrate/migrate.go"
 	pathDatabase   = "infrastructure/database/connection.go"
@@ -176,21 +183,21 @@ func (tg *TemplateGenerator) getDestinationPath(fileType string) string {
 
 	// gocritic (ifElseChain) fix: Changed if-else to switch.
 	switch arch {
-	case "ddd":
+	case archDDD:
 		paths["config"] = pathConfig
 		paths["database"] = pathDatabase
 		paths["routes"] = pathRoutes
 		paths["handlers"] = pathHandlers
 		paths["middleware"] = pathMiddleware
 		paths["migrate"] = pathMigrate
-	case "clean":
+	case archClean:
 		paths["config"] = pathConfig
 		paths["database"] = pathDatabase
 		paths["routes"] = pathRoutes
 		paths["handlers"] = pathHandlers
 		paths["middleware"] = pathMiddleware
 		paths["migrate"] = pathMigrate
-	case "hexagonal":
+	case archHexagonal:
 		paths["config"] = pathConfig
 		paths["database"] = "adapters/secondary/database/connection.go"
 		paths["routes"] = "adapters/primary/http/routes.go"
@@ -232,7 +239,7 @@ func (tg *TemplateGenerator) generateBaseFiles() error {
 
 	// Conditionally generate validator
 	arch := strings.ToLower(string(tg.Config.Architecture))
-	if arch == "simple" || arch == "" {
+	if arch == archSimple || arch == "" {
 		destPath := tg.getDestinationPath("validator")
 		templatePath := "base/internal/utils/validator.go.tmpl"
 		if err := tg.generateFileFromTemplate(destPath, templatePath); err != nil {
@@ -349,52 +356,51 @@ func (tg *TemplateGenerator) generateToolFiles() error {
 		if err != nil {
 			return err
 		}
-		
+
 		slashedRelPath := filepath.ToSlash(relPath)
 		var destPath string
 
 		// Determine destination based on file path pattern and architecture
-		isSimple := strings.ToLower(string(tg.Config.Architecture)) == "simple"
-		isClean := strings.ToLower(string(tg.Config.Architecture)) == "clean"
-		isDDD := strings.ToLower(string(tg.Config.Architecture)) == "ddd"
-		isHexa := strings.ToLower(string(tg.Config.Architecture)) == "hexagonal"
+		arch := strings.ToLower(string(tg.Config.Architecture))
 
 		switch {
 		// Handle migrations folder (e.g. db/migrations or just migrations)
 		case strings.HasPrefix(slashedRelPath, "db/migrations/") || strings.HasPrefix(slashedRelPath, "migrations/"):
-			filename := ""
+			var filename string
 			if strings.HasPrefix(slashedRelPath, "db/migrations/") {
 				filename = strings.TrimPrefix(slashedRelPath, "db/migrations/")
 			} else {
 				filename = strings.TrimPrefix(slashedRelPath, "migrations/")
 			}
 
-			if isSimple {
+			switch arch {
+			case "simple":
 				destPath = filepath.Join("db/migrations", filename)
-			} else if isClean || isDDD {
+			case "clean", "ddd":
 				destPath = filepath.Join("infrastructure/database/migrations", filename)
-			} else if isHexa {
+			case "hexagonal":
 				destPath = filepath.Join("secondary/database/migrations", filename)
-			} else {
+			default:
 				destPath = filepath.Join("migrations", filename)
 			}
 
 		// Handle queries folder
 		case strings.HasPrefix(slashedRelPath, "db/queries/") || strings.HasPrefix(slashedRelPath, "queries/"):
-			filename := ""
+			var filename string
 			if strings.HasPrefix(slashedRelPath, "db/queries/") {
 				filename = strings.TrimPrefix(slashedRelPath, "db/queries/")
 			} else {
 				filename = strings.TrimPrefix(slashedRelPath, "queries/")
 			}
 
-			if isSimple {
+			switch arch {
+			case "simple":
 				destPath = filepath.Join("db/queries", filename)
-			} else if isClean || isDDD {
+			case "clean", "ddd":
 				destPath = filepath.Join("infrastructure/database/query", filename)
-			} else if isHexa {
+			case "hexagonal":
 				destPath = filepath.Join("secondary/database/query", filename)
-			} else {
+			default:
 				destPath = filepath.Join("queries", filename)
 			}
 
@@ -405,17 +411,11 @@ func (tg *TemplateGenerator) generateToolFiles() error {
 			destPath = "sqlc.yaml"
 		case strings.HasSuffix(path, "migrate.go.tmpl"):
 			destPath = tg.getDestinationPath("migrate")
-		
+
 		default:
 			// Fallback: maintain relative structure if not matched
 			// Use the filename if it's at the root of the tool template
-			if !strings.Contains(slashedRelPath, "/") {
-				// Don't just return the filename, it might overwrite root.
-				// But we also don't know where it goes.
-				// However, if we don't set destPath, generateFileFromTemplate will fail (good).
-				// We can try to put it in internal/utils or just skip if we don't know.
-				// For now, let's leave destPath empty and let generateFileFromTemplate return error if called.
-			}
+			// destPath remains empty to skip
 		}
 
 		if destPath == "" {
@@ -519,7 +519,7 @@ func (tg *TemplateGenerator) generateHelmChart() error {
 		if err != nil {
 			return err
 		}
-		
+
 		relPath, err := filepath.Rel(chartRoot, path)
 		if err != nil {
 			return err
@@ -530,7 +530,7 @@ func (tg *TemplateGenerator) generateHelmChart() error {
 
 		// Skip if directory, but make sure to create the dir in output
 		destPath := filepath.Join(tg.OutputDir, devopsDir, helmDir, relPath)
-		
+
 		if d.IsDir() {
 			if err := os.MkdirAll(destPath, 0755); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
