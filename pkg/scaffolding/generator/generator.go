@@ -3,7 +3,6 @@
 package generator
 
 import (
-	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -16,9 +15,13 @@ import (
 	"github.com/NarmadaWeb/goback/pkg/config"
 	"github.com/NarmadaWeb/goback/pkg/scaffolding"
 	"github.com/iancoleman/strcase"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/engine"
+)
+
+const (
+	archSimple    = "simple"
+	archClean     = "clean"
+	archDDD       = "ddd"
+	archHexagonal = "hexagonal"
 )
 
 const (
@@ -98,6 +101,10 @@ func (tg *TemplateGenerator) Generate() error {
 // It reads a template file, creates the destination directory if it doesn't exist,
 // executes the template with the config data, and writes the result.
 func (tg *TemplateGenerator) generateFileFromTemplate(destPath, templatePath string, delims ...string) error {
+	if destPath == "" {
+		return fmt.Errorf("empty destination path for template %s", templatePath)
+	}
+
 	// Remove .tmpl extension from destination path
 	destPath = strings.TrimSuffix(destPath, ".tmpl")
 
@@ -176,21 +183,21 @@ func (tg *TemplateGenerator) getDestinationPath(fileType string) string {
 
 	// gocritic (ifElseChain) fix: Changed if-else to switch.
 	switch arch {
-	case "ddd":
+	case archDDD:
 		paths["config"] = pathConfig
 		paths["database"] = pathDatabase
 		paths["routes"] = pathRoutes
 		paths["handlers"] = pathHandlers
 		paths["middleware"] = pathMiddleware
 		paths["migrate"] = pathMigrate
-	case "clean":
+	case archClean:
 		paths["config"] = pathConfig
 		paths["database"] = pathDatabase
 		paths["routes"] = pathRoutes
 		paths["handlers"] = pathHandlers
 		paths["middleware"] = pathMiddleware
 		paths["migrate"] = pathMigrate
-	case "hexagonal":
+	case archHexagonal:
 		paths["config"] = pathConfig
 		paths["database"] = "adapters/secondary/database/connection.go"
 		paths["routes"] = "adapters/primary/http/routes.go"
@@ -232,7 +239,7 @@ func (tg *TemplateGenerator) generateBaseFiles() error {
 
 	// Conditionally generate validator
 	arch := strings.ToLower(string(tg.Config.Architecture))
-	if arch == "simple" || arch == "" {
+	if arch == archSimple || arch == "" {
 		destPath := tg.getDestinationPath("validator")
 		templatePath := "base/internal/utils/validator.go.tmpl"
 		if err := tg.generateFileFromTemplate(destPath, templatePath); err != nil {
@@ -349,125 +356,71 @@ func (tg *TemplateGenerator) generateToolFiles() error {
 		if err != nil {
 			return err
 		}
-		var destPath string
-
-		// generateToolFiles for sqlc to ddd architecture
-		isSimple := strings.ToLower(string(tg.Config.Architecture)) == "simple"
-		isClean := strings.ToLower(string(tg.Config.Architecture)) == "clean"
-		isDDD := strings.ToLower(string(tg.Config.Architecture)) == "ddd"
-		isHexa := strings.ToLower(string(tg.Config.Architecture)) == "hexagonal"
 
 		slashedRelPath := filepath.ToSlash(relPath)
+		var destPath string
 
-		// generateToolFiles for sqlc to ddd architecture
+		// Determine destination based on file path pattern and architecture
+		arch := strings.ToLower(string(tg.Config.Architecture))
+
 		switch {
-		// for generate file sqlc simple
-		case isSimple && strings.HasPrefix(slashedRelPath, "db/migrations"):
-			// move folder migrations
-			filename := strings.TrimPrefix(slashedRelPath, "db/migrations")
-
-			destPath = filepath.Join("db/migration", filename)
-		case isSimple && strings.HasPrefix(slashedRelPath, "db/queries"):
-			// move folder queries
-			filename := strings.TrimPrefix(slashedRelPath, "db/queries")
-
-			destPath = filepath.Join("db/query", filename)
-
-		// for generate file sqlc clean
-		case isClean && strings.HasPrefix(slashedRelPath, "db/migrations"):
-			// move folder migrations
-			filename := strings.TrimPrefix(slashedRelPath, "db/migrations")
-
-			destPath = filepath.Join("infrastructure/database/migrations", filename)
-
-		case isClean && strings.HasPrefix(slashedRelPath, "db/queries"):
-			// move folder queries
-			filename := strings.TrimPrefix(slashedRelPath, "db/queries")
-
-			destPath = filepath.Join("infrastructure/database/query", filename)
-
-		// for generate file sqlc ddd
-		case isDDD && strings.HasPrefix(slashedRelPath, "db/migrations"):
-			// move folder migrations
-			filename := strings.TrimPrefix(slashedRelPath, "db/migrations")
-
-			destPath = filepath.Join("infrastructure/database/migrations", filename)
-		case isDDD && strings.HasPrefix(slashedRelPath, "db/queries"):
-			// move folder query
-			filename := strings.TrimPrefix(slashedRelPath, "db/queries")
-
-			destPath = filepath.Join("infrastructure/database/query", filename)
-
-		case isHexa && strings.HasPrefix(slashedRelPath, "db/migrations"):
-			// move folder migrations
-			filename := strings.TrimPrefix(slashedRelPath, "db/migrations")
-
-			destPath = filepath.Join("secondary/database/migrations", filename)
-		case isHexa && strings.HasPrefix(slashedRelPath, "db/queries"):
-			// move folder query
-			filename := strings.TrimPrefix(slashedRelPath, "db/queries")
-
-			destPath = filepath.Join("secondary/database/query", filename)
-
-		// Handling "pregen" folder for SQLC pre-generated files
-		case strings.HasPrefix(slashedRelPath, "pregen"):
-			// Determine DB Type
-			dbType := strings.ToLower(string(tg.Config.Database))
-			if dbType == "postgresql" {
-				dbType = "postgres"
+		// Handle migrations folder (e.g. db/migrations or just migrations)
+		case strings.HasPrefix(slashedRelPath, "db/migrations/") || strings.HasPrefix(slashedRelPath, "migrations/"):
+			var filename string
+			if strings.HasPrefix(slashedRelPath, "db/migrations/") {
+				filename = strings.TrimPrefix(slashedRelPath, "db/migrations/")
+			} else {
+				filename = strings.TrimPrefix(slashedRelPath, "migrations/")
 			}
 
-			// Only process files for the selected database
-			// Expected path structure: pregen/{db_type}/{filename}
-			// Note: strings.Contains works better here because filepath separators might differ or be normalized
-			if !strings.Contains(slashedRelPath, "pregen/"+dbType+"/") {
-				return nil
-			}
-
-			filename := filepath.Base(path)
-
-			// Determine destination directory based on architecture
-			var outDir string
-			switch {
-			case isSimple:
-				outDir = "db/sqlc"
-			case isClean, isDDD:
-				outDir = "infrastructure/database/sqlc"
-			case isHexa:
-				outDir = "secondary/database/sqlc"
-			default:
-				outDir = "db/sqlc"
-			}
-
-			destPath = filepath.Join(outDir, filename)
-
-		// for generate file sqlx
-		// Handling "migrations" folder specifically for SQLX (or general usage)
-		case strings.HasPrefix(slashedRelPath, "migrations"):
-			filename := strings.TrimPrefix(slashedRelPath, "migrations")
-
-			switch {
-			case isSimple:
+			switch arch {
+			case "simple":
 				destPath = filepath.Join("db/migrations", filename)
-			case isClean, isDDD:
+			case "clean", "ddd":
 				destPath = filepath.Join("infrastructure/database/migrations", filename)
-			case isHexa:
+			case "hexagonal":
 				destPath = filepath.Join("secondary/database/migrations", filename)
 			default:
-				// Fallback if architecture is unknown or defaults to simple
-				destPath = filepath.Join("db/migrations", filename)
+				destPath = filepath.Join("migrations", filename)
 			}
 
-		default:
-			// for sqlc simple architecture
-			switch {
-			case filepath.Base(path) == "model.go.tmpl":
-				destPath = tg.getDestinationPath("models")
-			case filepath.Base(path) == "sqlc.yaml.tmpl":
-				destPath = "sqlc.yaml"
-			case strings.HasSuffix(path, "migrate.go.tmpl"):
-				destPath = tg.getDestinationPath("migrate")
+		// Handle queries folder
+		case strings.HasPrefix(slashedRelPath, "db/queries/") || strings.HasPrefix(slashedRelPath, "queries/"):
+			var filename string
+			if strings.HasPrefix(slashedRelPath, "db/queries/") {
+				filename = strings.TrimPrefix(slashedRelPath, "db/queries/")
+			} else {
+				filename = strings.TrimPrefix(slashedRelPath, "queries/")
 			}
+
+			switch arch {
+			case "simple":
+				destPath = filepath.Join("db/queries", filename)
+			case "clean", "ddd":
+				destPath = filepath.Join("infrastructure/database/query", filename)
+			case "hexagonal":
+				destPath = filepath.Join("secondary/database/query", filename)
+			default:
+				destPath = filepath.Join("queries", filename)
+			}
+
+		// Specific file handling
+		case filepath.Base(path) == "model.go.tmpl":
+			destPath = tg.getDestinationPath("models")
+		case filepath.Base(path) == "sqlc.yaml.tmpl":
+			destPath = "sqlc.yaml"
+		case strings.HasSuffix(path, "migrate.go.tmpl"):
+			destPath = tg.getDestinationPath("migrate")
+
+		default:
+			// Fallback: maintain relative structure if not matched
+			// Use the filename if it's at the root of the tool template
+			// destPath remains empty to skip
+		}
+
+		if destPath == "" {
+			// Skip files we don't know how to place
+			return nil
 		}
 
 		templatePath := strings.TrimPrefix(path, templatesDir+string(filepath.Separator))
@@ -531,7 +484,8 @@ func (tg *TemplateGenerator) generateDevOpsFiles() error {
 			if err_ != nil {
 				return err_
 			}
-			if d.IsDir() || !strings.HasSuffix(path, ".tmpl") {
+			if d.IsDir() || (!strings.HasSuffix(path, ".tmpl") && !strings.HasSuffix(path, ".tf")) {
+				// Note: Added .tf check just in case, though they likely have .tmpl
 				return nil
 			}
 
@@ -557,20 +511,15 @@ func (tg *TemplateGenerator) generateDevOpsFiles() error {
 }
 
 func (tg *TemplateGenerator) generateHelmChart() error {
-	tempDir, err := os.MkdirTemp("", "goback-helm-")
-	if err != nil {
-		return fmt.Errorf("failed to create temp dir for helm chart: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
 	chartFS := scaffolding.Templates
 	chartRoot := filepath.Join(templatesDir, devopsDir, helmDir)
 
-	// Walk the embedded chart directory and write files to temp dir
-	err = fs.WalkDir(chartFS, chartRoot, func(path string, d fs.DirEntry, err error) error {
+	// Walk the embedded chart directory
+	err := fs.WalkDir(chartFS, chartRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+
 		relPath, err := filepath.Rel(chartRoot, path)
 		if err != nil {
 			return err
@@ -579,109 +528,59 @@ func (tg *TemplateGenerator) generateHelmChart() error {
 			return nil
 		}
 
-		tempPath := filepath.Join(tempDir, relPath)
+		// Skip if directory, but make sure to create the dir in output
+		destPath := filepath.Join(tg.OutputDir, devopsDir, helmDir, relPath)
+
 		if d.IsDir() {
-			return os.Mkdir(tempPath, 0755)
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+			}
+			return nil
 		}
 
+		// Handle files
+		templatePath := strings.TrimPrefix(path, templatesDir+string(filepath.Separator))
+		baseName := filepath.Base(path)
+
+		// 1. Chart.yaml.tmpl and values.yaml.tmpl -> Process as Go Template
+		if baseName == "Chart.yaml.tmpl" || baseName == "values.yaml.tmpl" {
+			return tg.generateFileFromTemplate(filepath.Join(devopsDir, helmDir, relPath), templatePath)
+		}
+
+		// 2. All other files -> Copy, perform string replacement for {{.ProjectName}}, and strip .tmpl
+		// Read content
 		data, err := fs.ReadFile(chartFS, path)
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(tempPath, data, 0644)
+		content := string(data)
+
+		// Replace {{.ProjectName}}
+		content = strings.ReplaceAll(content, "{{.ProjectName}}", tg.Config.ProjectName)
+		// Handle potential spaced version {{ .ProjectName }} just in case
+		content = strings.ReplaceAll(content, "{{ .ProjectName }}", tg.Config.ProjectName)
+
+		// Determine output filename (strip .tmpl)
+		finalDestPath := destPath
+		if strings.HasSuffix(destPath, ".tmpl") {
+			finalDestPath = strings.TrimSuffix(destPath, ".tmpl")
+		}
+
+		// Create parent directory if needed (should have been created by IsDir check but just in case)
+		if err := os.MkdirAll(filepath.Dir(finalDestPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", finalDestPath, err)
+		}
+
+		// Write content
+		if err := os.WriteFile(finalDestPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to write file %s: %w", finalDestPath, err)
+		}
+
+		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("failed to extract helm chart to temp dir: %w", err)
-	}
 
-	// Manually render Chart.yaml from its template
-	chartTmplPath := filepath.Join(chartRoot, "Chart.yaml.tmpl")
-	chartTmplContent, err := fs.ReadFile(chartFS, chartTmplPath)
 	if err != nil {
-		return fmt.Errorf("failed to read Chart.yaml.tmpl: %w", err)
-	}
-	chartTmpl, err := template.New("Chart.yaml").Parse(string(chartTmplContent))
-	if err != nil {
-		return fmt.Errorf("failed to parse Chart.yaml.tmpl: %w", err)
-	}
-	var chartBytes bytes.Buffer
-	if err := chartTmpl.Execute(&chartBytes, tg.Config); err != nil {
-		return fmt.Errorf("failed to execute Chart.yaml.tmpl: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), chartBytes.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write temporary Chart.yaml: %w", err)
-	}
-	_ = os.Remove(filepath.Join(tempDir, "Chart.yaml.tmpl"))
-
-	// Load the chart from the temporary directory
-	chart, err := loader.Load(tempDir)
-	if err != nil {
-		return fmt.Errorf("failed to load helm chart from %s: %w", tempDir, err)
-	}
-
-	// Render values.yaml.tmpl to a buffer
-	var valuesBytes bytes.Buffer
-	valuesTmplPath := filepath.Join(chartRoot, "values.yaml.tmpl")
-	valuesContent, err := fs.ReadFile(chartFS, valuesTmplPath)
-	if err != nil {
-		return fmt.Errorf("failed to read values.yaml.tmpl: %w", err)
-	}
-	tmpl, err := template.New("values").Parse(string(valuesContent))
-	if err != nil {
-		return fmt.Errorf("failed to parse values.yaml.tmpl: %w", err)
-	}
-	if err := tmpl.Execute(&valuesBytes, tg.Config); err != nil {
-		return fmt.Errorf("failed to execute values.yaml.tmpl: %w", err)
-	}
-
-	values, err := chartutil.ReadValues(valuesBytes.Bytes())
-	if err != nil {
-		return fmt.Errorf("failed to read rendered values: %w", err)
-	}
-
-	releaseOptions := chartutil.ReleaseOptions{
-		Name:      tg.Config.ProjectName,
-		Namespace: "default",
-		Revision:  1,
-		IsInstall: true,
-	}
-
-	finalValues, err := chartutil.ToRenderValues(chart, values, releaseOptions, &chartutil.Capabilities{})
-	if err != nil {
-		// Try with a fallback for older Helm versions if needed, though v3 should be fine
-		if chart.Metadata.KubeVersion != "" {
-			// kubeVersion, _ := chartutil.ParseKubeVersion(chart.Metadata.KubeVersion)
-			finalValues, err = chartutil.ToRenderValues(chart, values, releaseOptions, chartutil.DefaultCapabilities.Copy())
-		}
-		if err != nil {
-			return fmt.Errorf("failed to coalesce values: %w", err)
-		}
-	}
-
-	renderedFiles, err := engine.Render(chart, finalValues)
-	if err != nil {
-		// If there is a problem with the rendered chart, we can try to debug it here
-		// For example, by printing the final values
-		// fmt.Printf("DEBUG: Final Helm values: %s\n", finalValues.AsMap())
-		return fmt.Errorf("failed to render helm chart: %w", err)
-	}
-
-	// Write the rendered files to the output directory
-	for path, content := range renderedFiles {
-		if content == "" || strings.HasSuffix(path, "NOTES.txt") || strings.Contains(path, "/tests/") {
-			continue
-		}
-		// The path from `engine.Render` is relative to the chart root, e.g., `my-chart/templates/service.yaml`
-		// We want to strip the chart name prefix.
-		relPath := strings.TrimPrefix(path, chart.Name()+"/")
-		destPath := filepath.Join(tg.OutputDir, devopsDir, helmDir, relPath)
-
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("failed to create directory for %s: %w", destPath, err)
-		}
-		if err := os.WriteFile(destPath, []byte(content), 0644); err != nil {
-			return fmt.Errorf("failed to write rendered file %s: %w", destPath, err)
-		}
+		return fmt.Errorf("failed to scaffold helm chart: %w", err)
 	}
 
 	return nil
