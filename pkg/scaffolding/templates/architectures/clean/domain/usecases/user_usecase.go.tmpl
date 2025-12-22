@@ -4,27 +4,15 @@ import (
 	"context"
 	"errors"
 	"{{.ModulePath}}/domain/entities"
-	{{- if eq .Database "postgresql" }}
-	"github.com/google/uuid"
-	{{- end}}
 )
 
 // UserRepository defines the contract for user data access in use cases
 type UserRepository interface {
-	{{- if eq .Database "postgresql" }}
-	FindByID(ctx context.Context, id uuid.UUID) (*entities.User, error)
-	{{- else}}
 	FindByID(ctx context.Context, id entities.UserID) (*entities.User, error)
-	{{- end}}
 	FindByEmail(ctx context.Context, email string) (*entities.User, error)
 	FindAll(ctx context.Context, page, perPage int) ([]entities.User, int64, error)
-	{{- if eq .Database "postgresql" }}
-	Save(ctx context.Context, user *entities.User) error
-	Delete(ctx context.Context, id uuid.UUID) error
-	{{- else}}
 	Save(ctx context.Context, user *entities.User) error
 	Delete(ctx context.Context, id entities.UserID) error
-	{{- end}}
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 }
 
@@ -66,11 +54,7 @@ func (uc *UserUsecase) CreateUser(ctx context.Context, name, email, password str
 }
 
 // GetUser use case for retrieving a user by ID
-{{- if eq .Database "postgresql" }}
-func (uc *UserUsecase) GetUser(ctx context.Context, id uuid.UUID) (*entities.User, error) {
-{{- else}}
 func (uc *UserUsecase) GetUser(ctx context.Context, id entities.UserID) (*entities.User, error) {
-{{- end}}
 	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -121,11 +105,7 @@ func (uc *UserUsecase) GetAllUsers(ctx context.Context, page, perPage int) ([]*e
 }
 
 // UpdateUser use case for updating user information
-{{- if eq .Database "postgresql" }}
-func (uc *UserUsecase) UpdateUser(ctx context.Context, id uuid.UUID, dto entities.UpdateUserDTO) (*entities.User, error) {
-{{- else}}
 func (uc *UserUsecase) UpdateUser(ctx context.Context, id entities.UserID, dto entities.UpdateUserDTO) (*entities.User, error) {
-{{- end}}
 	// Get existing user
 	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
@@ -184,11 +164,7 @@ func (uc *UserUsecase) UpdateUser(ctx context.Context, id entities.UserID, dto e
 }
 
 // DeleteUser use case for deleting a user
-{{- if eq .Database "postgresql" }}
-func (uc *UserUsecase) DeleteUser(ctx context.Context, id uuid.UUID) error {
-{{- else}}
 func (uc *UserUsecase) DeleteUser(ctx context.Context, id entities.UserID) error {
-{{- end}}
 	// Check if user exists
 	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
@@ -210,11 +186,7 @@ func (uc *UserUsecase) DeleteUser(ctx context.Context, id entities.UserID) error
 }
 
 // ActivateUser use case for activating a user account
-{{- if eq .Database "postgresql" }}
-func (uc *UserUsecase) ActivateUser(ctx context.Context, id uuid.UUID) error {
-{{- else}}
 func (uc *UserUsecase) ActivateUser(ctx context.Context, id entities.UserID) error {
-{{- end}}
 	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return err
@@ -228,11 +200,7 @@ func (uc *UserUsecase) ActivateUser(ctx context.Context, id entities.UserID) err
 }
 
 // DeactivateUser use case for deactivating a user account
-{{- if eq .Database "postgresql" }}
-func (uc *UserUsecase) DeactivateUser(ctx context.Context, id uuid.UUID) error {
-{{- else}}
 func (uc *UserUsecase) DeactivateUser(ctx context.Context, id entities.UserID) error {
-{{- end}}
 	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return err
@@ -246,11 +214,7 @@ func (uc *UserUsecase) DeactivateUser(ctx context.Context, id entities.UserID) e
 }
 
 // VerifyUserPassword use case for password verification
-{{- if eq .Database "postgresql" }}
-func (uc *UserUsecase) VerifyUserPassword(ctx context.Context, id uuid.UUID, password string) (bool, error) {
-{{- else}}
 func (uc *UserUsecase) VerifyUserPassword(ctx context.Context, id entities.UserID, password string) (bool, error) {
-{{- end}}
 	user, err := uc.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return false, err
